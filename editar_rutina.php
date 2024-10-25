@@ -2,26 +2,42 @@
 require_once __DIR__ . '/includes/functions.php';
 
 $mensaje = '';
+$rutina = null;
+
+if (isset($_GET['id'])) {
+    $rutina = obtenerRutinaPorId($_GET['id']);
+    if (!$rutina) {
+        header('Location: index.php?mensaje=Rutina no encontrada');
+        exit;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $titulo = $_POST['titulo'] ?? '';
-    $descripcion = $_POST['descripcion'] ?? '';
-    $dia = $_POST['dia'] ?? '';
-    $horaInicio = $_POST['hora_inicio'] ?? '';
-    $horaFin = $_POST['hora_fin'] ?? '';
-    $prioridad = $_POST['prioridad'] ?? 'media';
-
-    // Validación básica
-    if (empty($titulo) || empty($dia) || empty($horaInicio) || empty($horaFin)) {
-        $mensaje = "Por favor, complete todos los campos requeridos.";
-    } else {
-        $resultado = crearRutina($titulo, $descripcion, $dia, $horaInicio, $horaFin, $prioridad);
-        if ($resultado) {
-            header("Location: index.php?dia=" . urlencode($dia) . "&mensaje=Rutina creada con éxito");
+    if (
+        !empty($_POST['titulo']) && 
+        !empty($_POST['descripcion']) && 
+        !empty($_POST['dia']) && 
+        !empty($_POST['horaInicio']) && 
+        !empty($_POST['horaFin'])
+    ) {
+        $actualizado = actualizarRutina(
+            $_GET['id'],
+            $_POST['titulo'],
+            $_POST['descripcion'],
+            $_POST['dia'],
+            $_POST['horaInicio'],
+            $_POST['horaFin'],
+            $_POST['prioridad']
+        );
+        
+        if ($actualizado) {
+            header('Location: index.php?dia=' . $_POST['dia'] . '&mensaje=Rutina actualizada con éxito');
             exit;
         } else {
-            $mensaje = "Error al crear la rutina.";
+            $mensaje = "Error al actualizar la rutina.";
         }
+    } else {
+        $mensaje = "Por favor, complete todos los campos requeridos.";
     }
 }
 ?>
@@ -31,92 +47,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agregar Nueva Rutina</title>
+    <title>Editar Rutina</title>
     <link rel="stylesheet" href="public/css/styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Agregar Nueva Rutina</h1>
-
+        <h1>Editar Rutina</h1>
+        
         <?php if ($mensaje): ?>
-            <div class="error">
-                <?php echo htmlspecialchars($mensaje); ?>
-            </div>
+            <div class="error"><?php echo $mensaje; ?></div>
         <?php endif; ?>
 
-        <form method="POST" action="agregar_rutina.php" class="form-rutina">
+        <?php if ($rutina): ?>
+        <form method="POST" class="form-rutina">
             <div class="form-group">
-                <label for="titulo">Título *</label>
-                <input type="text" id="titulo" name="titulo" required
-                       value="<?php echo isset($_POST['titulo']) ? htmlspecialchars($_POST['titulo']) : ''; ?>">
+                <label for="titulo">Título:</label>
+                <input type="text" id="titulo" name="titulo" required 
+                       value="<?php echo htmlspecialchars($rutina['titulo']); ?>">
             </div>
 
             <div class="form-group">
-                <label for="descripcion">Descripción</label>
-                <textarea id="descripcion" name="descripcion"><?php echo isset($_POST['descripcion']) ? htmlspecialchars($_POST['descripcion']) : ''; ?></textarea>
+                <label for="descripcion">Descripción:</label>
+                <textarea id="descripcion" name="descripcion" required><?php 
+                    echo htmlspecialchars($rutina['descripcion']); 
+                ?></textarea>
             </div>
 
             <div class="form-group">
-                <label for="dia">Día de la Semana *</label>
+                <label for="dia">Día de la semana:</label>
                 <select id="dia" name="dia" required>
-                    <option value="">Seleccione un día</option>
                     <?php
                     $dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
                     foreach ($dias as $dia) {
-                        $selected = (isset($_POST['dia']) && $_POST['dia'] === $dia) ? 'selected' : '';
+                        $selected = $rutina['dia'] === $dia ? 'selected' : '';
                         echo "<option value=\"$dia\" $selected>$dia</option>";
                     }
                     ?>
                 </select>
             </div>
 
-            <div class="form-row">
-                <div class="form-group half">
-                    <label for="hora_inicio">Hora de Inicio *</label>
-                    <input type="time" id="hora_inicio" name="hora_inicio" required
-                           value="<?php echo isset($_POST['hora_inicio']) ? htmlspecialchars($_POST['hora_inicio']) : ''; ?>">
-                </div>
-
-                <div class="form-group half">
-                    <label for="hora_fin">Hora de Fin *</label>
-                    <input type="time" id="hora_fin" name="hora_fin" required
-                           value="<?php echo isset($_POST['hora_fin']) ? htmlspecialchars($_POST['hora_fin']) : ''; ?>">
-                </div>
+            <div class="form-group">
+                <label for="horaInicio">Hora de inicio:</label>
+                <input type="time" id="horaInicio" name="horaInicio" required
+                       value="<?php echo htmlspecialchars($rutina['horaInicio']); ?>">
             </div>
 
             <div class="form-group">
-                <label for="prioridad">Prioridad</label>
+                <label for="horaFin">Hora de fin:</label>
+                <input type="time" id="horaFin" name="horaFin" required
+                       value="<?php echo htmlspecialchars($rutina['horaFin']); ?>">
+            </div>
+
+            <div class="form-group">
+                <label for="prioridad">Prioridad:</label>
                 <select id="prioridad" name="prioridad">
                     <?php
                     $prioridades = ['baja', 'media', 'alta'];
-                    foreach ($prioridades as $p) {
-                        $selected = (isset($_POST['prioridad']) && $_POST['prioridad'] === $p) ? 'selected' : '';
-                        echo "<option value=\"$p\" $selected>" . ucfirst($p) . "</option>";
+                    foreach ($prioridades as $prioridad) {
+                        $selected = $rutina['prioridad'] === $prioridad ? 'selected' : '';
+                        echo "<option value=\"$prioridad\" $selected>" . ucfirst($prioridad) . "</option>";
                     }
                     ?>
                 </select>
             </div>
 
             <div class="form-actions">
-                <a href="index.php" class="button">Cancelar</a>
-                <button type="submit" class="button primary">Guardar Rutina</button>
+                <button type="submit" class="button">Actualizar Rutina</button>
+                <a href="index.php?dia=<?php echo $rutina['dia']; ?>" class="button">Cancelar</a>
             </div>
         </form>
+        <?php endif; ?>
     </div>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Validación de horas
-        document.querySelector('form').addEventListener('submit', function(e) {
-            const horaInicio = document.getElementById('hora_inicio').value;
-            const horaFin = document.getElementById('hora_fin').value;
-            
-            if (horaInicio && horaFin && horaInicio >= horaFin) {
-                e.preventDefault();
-                alert('La hora de fin debe ser posterior a la hora de inicio.');
-            }
-        });
-    });
-    </script>
 </body>
 </html>
